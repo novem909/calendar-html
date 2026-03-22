@@ -4,214 +4,319 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Win/Lose Calendar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#0b0e14;--panel:#121723;--muted:#8a91a4;--text:#e6e9ef;
-    --accent:#5ac8fa;--green:#17c964;--red:#f31260;--round:14px;
-    --shadow:0 10px 30px rgba(0,0,0,.45);
+    --bg:#090c11;--panel:#10141c;--panel-raised:#161c28;
+    --surface:#0c0f16;--border:#1a2030;--border-hover:#252e40;
+    --muted:#5c6678;--text:#dfe3eb;--text-dim:#8b95a8;
+    --accent:#38bdf8;--accent-dim:rgba(56,189,248,.07);--accent-border:rgba(56,189,248,.22);
+    --green:#34d399;--green-bg:rgba(52,211,153,.07);--green-border:rgba(52,211,153,.30);
+    --red:#fb7185;--red-bg:rgba(251,113,133,.07);--red-border:rgba(251,113,133,.30);
+    --round:12px;--round-sm:8px;
+    --shadow:0 2px 12px rgba(0,0,0,.18);--shadow-lg:0 8px 32px rgba(0,0,0,.3);
+    --ease:cubic-bezier(.4,0,.2,1);
   }
-  *{box-sizing:border-box}
+  *{box-sizing:border-box;margin:0}
   body{
-    margin:0;padding:24px;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial;
-    background:radial-gradient(1200px 800px at 80% -20%,#1a2030,var(--bg));color:var(--text);
+    padding:20px;
+    font-family:'Inter',ui-sans-serif,system-ui,-apple-system,sans-serif;
+    background:var(--bg);color:var(--text);
+    -webkit-font-smoothing:antialiased;
   }
-  .container{max-width:1400px;margin:0 auto;position:relative;display:flex;gap:20px}
-  .main-content{flex:1}
-  header{display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-bottom:18px}
-  .controls{
-    display:flex;gap:12px;align-items:center;flex-wrap:wrap;
-    background:linear-gradient(180deg,#101523,#0e1420);
-    border:1px solid #2a3144;border-radius:var(--round);padding:10px 12px;box-shadow:var(--shadow)
+
+  /* ── Layout ── */
+  .container{max-width:1440px;margin:0 auto;display:flex;gap:20px}
+  .main-content{flex:1;min-width:0}
+  header{margin-bottom:16px}
+
+  /* ── Global elements ── */
+  select,button{
+    font-family:inherit;background:var(--panel-raised);color:var(--text);
+    border:1px solid var(--border);border-radius:var(--round-sm);
+    padding:8px 12px;font-size:13px;cursor:pointer;
+    transition:all .2s var(--ease)
   }
-  select,button,.pill{
-    background:#151b2b;color:var(--text);border:1px solid #303853;border-radius:10px;padding:10px 12px;font-size:14px
+  select:hover,button:hover{border-color:var(--border-hover);background:#1c2334}
+  select:focus,button:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
+  .pill{
+    display:inline-flex;align-items:center;gap:6px;
+    background:var(--panel);border:1px solid var(--border);border-radius:20px;
+    padding:5px 12px;font-size:12px;color:var(--text-dim)
   }
-  select:focus,button:focus{outline:2px solid var(--accent);outline-offset:2px}
-  .legend{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-  .pill{display:inline-flex;align-items:center;gap:8px}
-  .dot{width:12px;height:12px;border-radius:999px;display:inline-block}
+  .dot{width:8px;height:8px;border-radius:999px;display:inline-block}
   .dot.win{background:var(--green)} .dot.lose{background:var(--red)}
+  .legend{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .muted{color:var(--muted);font-size:12px}
 
+  /* ── Calendar panel ── */
   .panel{
-    background:linear-gradient(180deg,#111624,#0f1522);
-    border:1px solid #262d40;border-radius:var(--round);box-shadow:var(--shadow);padding:16px
+    background:var(--panel);border:1px solid var(--border);
+    border-radius:var(--round);padding:20px
   }
-  .month-title{font-size:20px;font-weight:700;margin:4px 0 10px;color:#dfe6f7;text-align:center}
-
+  .month-title{
+    font-size:18px;font-weight:600;color:var(--text);
+    text-align:center;margin-bottom:16px;letter-spacing:-.02em
+  }
   .weekdays{
-    display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:8px;text-align:center;font-size:13px;color:var(--muted)
+    display:grid;grid-template-columns:repeat(7,1fr);
+    margin-bottom:6px;text-align:center;
+    font-size:11px;font-weight:600;color:var(--muted);
+    text-transform:uppercase;letter-spacing:.06em
   }
-  .grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+  .grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
   .pad{visibility:hidden}
 
+  /* ── Day cards ── */
   .day{
-    background:#0f1422;border:1px solid #273048;border-radius:12px;padding:8px;
-    display:flex;flex-direction:column;gap:4px;transition:transform .12s ease,box-shadow .12s ease,background .12s ease;min-height:110px
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:10px;padding:8px 10px;
+    display:flex;flex-direction:column;gap:3px;
+    transition:all .2s var(--ease);min-height:115px;position:relative
   }
-  .day:hover{transform:translateY(-2px);box-shadow:0 10px 20px rgba(0,0,0,.3)}
-  .day.win{background:rgba(23,201,100,.12);border-color:rgba(23,201,100,.55)}
-  .day.lose{background:rgba(243,18,96,.12);border-color:rgba(243,18,96,.55)}
-  .day-header{display:flex;align-items:baseline;justify-content:space-between}
-  .day-num{font-size:16px;font-weight:700}
-  .state{font-size:12px;color:var(--muted)}
-  .reasoning{flex:1;margin:4px 0;min-height:30px;font-size:11px;color:var(--text);
-    padding:4px;border-radius:4px;cursor:text;line-height:1.3
+  .day:hover{
+    border-color:var(--border-hover);background:var(--panel);
+    box-shadow:var(--shadow)
   }
-  .reasoning:hover{background:rgba(255,255,255,0.02)}
-  .reasoning.editing{
-    background:#0a0f1a;border:1px solid var(--accent);outline:none;color:var(--text)
+  .day.today{border-color:var(--accent-border);box-shadow:0 0 0 1px var(--accent-dim)}
+  .day.win{
+    background:var(--green-bg);border-color:var(--green-border);
+    border-left:3px solid var(--green)
   }
-  .reasoning.empty:before{content:"Add reasoning...";opacity:0.6;font-style:italic}
-  .plans{flex:1;margin:4px 0;min-height:30px;font-size:11px;color:var(--text);
-    padding:4px;border-radius:4px;cursor:text;line-height:1.3;border-top:1px solid #2a3144;margin-top:8px;padding-top:8px
+  .day.lose{
+    background:var(--red-bg);border-color:var(--red-border);
+    border-left:3px solid var(--red)
   }
-  .plans:hover{background:rgba(255,255,255,0.02)}
-  .plans.editing{
-    background:#0a0f1a;border:1px solid var(--accent);outline:none;color:var(--text)
+  .day-header{display:flex;align-items:center;justify-content:space-between}
+  .day-num{font-size:14px;font-weight:600;color:var(--text)}
+  .day.today .day-num{color:var(--accent)}
+  .state{
+    font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;
+    padding:2px 6px;border-radius:4px
   }
-  .plans.empty:before{content:"Add plans...";opacity:0.6;font-style:italic}
+  .day.win .state{color:var(--green);background:rgba(52,211,153,.1)}
+  .day.lose .state{color:var(--red);background:rgba(251,113,133,.1)}
+  .day:not(.win):not(.lose) .state{color:var(--muted);font-weight:400}
 
-  /* Sidebar */
+  .reasoning{
+    flex:1;margin:2px 0;min-height:24px;font-size:11px;color:var(--text-dim);
+    padding:3px 4px;border-radius:4px;cursor:text;line-height:1.35;
+    transition:all .15s var(--ease)
+  }
+  .reasoning:hover{background:rgba(255,255,255,.02)}
+  .reasoning.editing{background:var(--surface);border:1px solid var(--accent-border);outline:none;color:var(--text)}
+  .reasoning.empty:before{content:"Reasoning...";opacity:.35;font-size:10px}
+
+  .plans{
+    flex:1;margin:2px 0;min-height:24px;font-size:11px;color:var(--text-dim);
+    padding:4px 4px 3px;border-radius:4px;cursor:text;line-height:1.35;
+    border-top:1px solid var(--border);padding-top:6px;
+    transition:all .15s var(--ease)
+  }
+  .plans:hover{background:rgba(255,255,255,.02)}
+  .plans.editing{background:var(--surface);border:1px solid var(--accent-border);outline:none;color:var(--text)}
+  .plans.empty:before{content:"Plans...";opacity:.35;font-size:10px}
+
+  /* Actions: reveal on hover */
+  .actions{
+    display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:auto;
+    opacity:0;transition:opacity .2s var(--ease)
+  }
+  .day:hover .actions{opacity:1}
+  .btn-win,.btn-lose{
+    padding:5px 6px;font-size:11px;font-weight:500;border-radius:6px;
+    border:1px solid transparent;transition:all .15s var(--ease)
+  }
+  .btn-win{color:var(--green);background:var(--green-bg);border-color:var(--green-border)}
+  .btn-win:hover{background:rgba(52,211,153,.18)}
+  .btn-lose{color:var(--red);background:var(--red-bg);border-color:var(--red-border)}
+  .btn-lose:hover{background:rgba(251,113,133,.18)}
+
+  .footer{display:flex;justify-content:center;margin-top:16px}
+  #stats{
+    font-size:13px;color:var(--text-dim);font-weight:500;
+    background:var(--panel-raised);border:1px solid var(--border);
+    border-radius:20px;padding:6px 16px
+  }
+
+  /* ── Sidebar ── */
   .sidebar{
-    width:220px;background:var(--panel);border:1px solid #262d40;border-radius:var(--round);
-    box-shadow:var(--shadow);padding:20px;height:fit-content;position:sticky;top:80px;display:flex;flex-direction:column;gap:20px
+    width:200px;display:flex;flex-direction:column;gap:16px;
+    position:sticky;top:20px;height:fit-content
   }
-  .sidebar h3{margin:0 0 12px;font-size:16px;color:var(--accent)}
-  .month-nav{display:flex;flex-direction:column;gap:4px}
+  .sidebar-section{
+    background:var(--panel);border:1px solid var(--border);
+    border-radius:var(--round);padding:14px;
+    display:flex;flex-direction:column;gap:10px
+  }
+  .sidebar-section h4{
+    font-size:11px;font-weight:600;color:var(--muted);
+    text-transform:uppercase;letter-spacing:.08em;margin:0
+  }
+  .month-nav{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px}
   .month-nav-item{
-    background:#151b2b;color:var(--text);border:1px solid #303853;border-radius:8px;
-    padding:10px 12px;font-size:14px;cursor:pointer;transition:all .2s ease;text-align:center
+    background:var(--surface);color:var(--text-dim);border:1px solid transparent;
+    border-radius:6px;padding:6px 2px;font-size:12px;font-weight:500;
+    cursor:pointer;transition:all .15s var(--ease);text-align:center
   }
-  .month-nav-item:hover{background:#1a2030;transform:translateY(-1px)}
-  .month-nav-item.active{background:var(--accent);color:#000;font-weight:600}
-
-  .sidebar-section{display:flex;flex-direction:column;gap:12px}
-  .sidebar-section h4{margin:0;font-size:14px;color:var(--accent);font-weight:600}
-  .sidebar-controls{display:flex;flex-direction:column;gap:8px}
-  .sidebar-controls select,.sidebar-controls button{
-    background:#151b2b;color:var(--text);border:1px solid #303853;border-radius:8px;
-    padding:8px 10px;font-size:13px;cursor:pointer;transition:all .2s ease
+  .month-nav-item:hover{background:var(--panel-raised);color:var(--text)}
+  .month-nav-item.active{
+    background:var(--accent-dim);color:var(--accent);
+    border-color:var(--accent-border);font-weight:600
   }
-  .sidebar-controls button:hover{background:#1a2030;transform:translateY(-1px)}
+  .sidebar-controls{display:flex;flex-direction:column;gap:6px}
+  .sidebar-controls select,.sidebar-controls button{width:100%;font-size:12px;padding:7px 10px}
 
-  /* Plans List */
-  .plans-list{display:flex;flex-direction:column;gap:12px;max-height:60vh;overflow-y:auto}
-  .plan-item{
-    background:#151b2b;border:1px solid #303853;border-radius:8px;padding:12px;
-    transition:all .2s ease
+  /* ── Tabs ── */
+  .tabs-container{margin-top:16px}
+  .tab-nav{display:flex;align-items:center;gap:16px;margin-bottom:14px;flex-wrap:wrap}
+  .tab-pills{
+    display:flex;gap:2px;background:var(--panel);
+    border:1px solid var(--border);border-radius:10px;padding:3px
   }
-  .plan-item:hover{background:#1a2030;transform:translateY(-1px)}
-  .plan-item-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-  .plan-item-month{font-size:14px;font-weight:600;color:var(--accent)}
-  .plan-item-date{font-size:12px;color:var(--muted)}
-  .plan-item-content{font-size:13px;color:var(--text);line-height:1.4}
-  .plan-item-day{font-size:12px;color:var(--muted);margin-top:4px}
-  .no-plans{text-align:center;color:var(--muted);font-style:italic;padding:40px 20px}
-  .actions{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:auto}
-  .btn-win,.btn-lose{padding:6px 8px;font-size:12px;border-radius:6px}
-  .btn-win{background:linear-gradient(180deg,rgba(23,201,100,.18),rgba(23,201,100,.12));border-color:rgba(23,201,100,.55)}
-  .btn-lose{background:linear-gradient(180deg,rgba(243,18,96,.2),rgba(243,18,96,.12));border-color:rgba(243,18,96,.55)}
-  .footer{display:flex;gap:10px;justify-content:flex-end;margin-top:14px}
-  .muted{color:var(--muted);font-size:12px}
-  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-
-  /* Tabs */
-  .tabs-container{margin-top:20px}
-  .tab-nav{display:flex;gap:2px;margin-bottom:16px}
   .tab-btn{
-    background:#151b2b;color:var(--text);border:1px solid #303853;border-bottom:none;
-    border-radius:10px 10px 0 0;padding:12px 20px;font-size:14px;cursor:pointer;transition:all .2s ease
+    background:transparent;color:var(--text-dim);border:none;
+    border-radius:var(--round-sm);padding:8px 16px;font-size:13px;
+    font-weight:500;cursor:pointer;transition:all .2s var(--ease)
   }
-  .tab-btn:hover{background:#1a2030}
-  .tab-btn.active{background:var(--panel);border-color:#2a3144;color:var(--accent)}
-  .tab-content{display:none;background:var(--panel);border:1px solid #2a3144;border-radius:0 var(--round) var(--round) var(--round);padding:20px;box-shadow:var(--shadow)}
+  .tab-btn:hover{color:var(--text);background:rgba(255,255,255,.04)}
+  .tab-btn.active{background:var(--panel-raised);color:var(--accent);box-shadow:var(--shadow)}
+  .tab-content{
+    display:none;background:var(--panel);border:1px solid var(--border);
+    border-radius:var(--round);padding:24px;
+  }
   .tab-content.active{display:block}
 
-  /* Metrics form */
-  .metrics-form{display:flex;flex-direction:column;gap:12px}
-  .metric-item{display:flex;flex-direction:column;gap:6px}
-  .metric-item label{font-size:14px;color:var(--accent);font-weight:600}
-  .metric-item input{background:#151b2b;color:var(--text);border:1px solid #303853;border-radius:8px;padding:10px 12px;font-size:14px}
-  .metric-item input:focus{outline:2px solid var(--accent);outline-offset:2px}
-  .metrics-actions{display:flex;gap:8px;margin-top:8px}
-  .btn-save{background:linear-gradient(180deg,rgba(23,201,100,.18),rgba(23,201,100,.12));border-color:rgba(23,201,100,.55)}
-  .btn-reset{background:#161c2d;border-style:dashed;color:#cbd5e1}
-
-  /* Win Metrics display box */
-  .metrics-display{
-    position:absolute;top:24px;right:24px;background:var(--panel);border:1px solid #2a3144;border-radius:var(--round);
-    padding:12px 16px;box-shadow:var(--shadow);max-width:220px;cursor:pointer;transition:all .2s ease
+  /* ── Metrics form ── */
+  .metrics-form{display:flex;flex-direction:column;gap:14px;max-width:480px}
+  .metric-item{display:flex;flex-direction:column;gap:5px}
+  .metric-item label{font-size:12px;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+  .metric-item input{
+    font-family:inherit;background:var(--surface);color:var(--text);
+    border:1px solid var(--border);border-radius:var(--round-sm);
+    padding:10px 12px;font-size:14px;transition:all .2s var(--ease)
   }
-  .metrics-display:hover{transform:translateY(-1px);box-shadow:0 12px 35px rgba(0,0,0,.5)}
-  .metrics-display h3{margin:0 0 8px;font-size:16px;color:var(--accent)}
-  .metrics-display ul{list-style:none;margin:0;padding:0}
-  .metrics-display li{font-size:14px;margin:4px 0;color:var(--text)}
-  .metrics-display .edit-hint{font-size:12px;color:var(--muted);margin-top:8px;font-style:italic}
+  .metric-item input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
+  .metrics-actions{display:flex;gap:8px;margin-top:4px}
+  .btn-save{color:var(--green);border-color:var(--green-border);background:var(--green-bg);font-weight:500}
+  .btn-save:hover{background:rgba(52,211,153,.15)}
+  .btn-reset{color:var(--text-dim);border-style:dashed}
+
+  /* ── Win Metrics display ── */
+  .metrics-display{
+    background:var(--panel);border:1px solid var(--border);border-radius:var(--round);
+    padding:14px 16px;cursor:pointer;transition:all .2s var(--ease);
+    margin-bottom:16px;display:flex;align-items:flex-start;gap:16px
+  }
+  .metrics-display:hover{border-color:var(--border-hover);background:var(--panel-raised)}
+  .metrics-display h3{
+    font-size:12px;font-weight:600;color:var(--accent);margin:0;
+    text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;
+    padding-top:1px
+  }
+  .metrics-display ul{list-style:none;padding:0;display:flex;gap:8px;flex-wrap:wrap}
+  .metrics-display li{
+    font-size:12px;color:var(--text-dim);
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:6px;padding:3px 10px
+  }
+  .metrics-display .edit-hint{
+    font-size:11px;color:var(--muted);margin-left:auto;white-space:nowrap;
+    opacity:.6;padding-top:2px
+  }
+
+  /* ── Plans list ── */
+  .plans-list{display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow-y:auto}
+  .plan-item{
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:var(--round-sm);padding:12px 14px;
+    cursor:pointer;transition:all .2s var(--ease)
+  }
+  .plan-item:hover{border-color:var(--border-hover);background:var(--panel-raised)}
+  .plan-item-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+  .plan-item-month{font-size:13px;font-weight:600;color:var(--accent)}
+  .plan-item-date{font-size:11px;color:var(--muted)}
+  .plan-item-content{font-size:13px;color:var(--text-dim);line-height:1.4}
+  .plan-item-day{font-size:11px;color:var(--muted);margin-top:4px}
+  .no-plans{text-align:center;color:var(--muted);padding:48px 20px;font-size:14px}
 
   /* ── Login overlay ── */
   #loginOverlay{
-    position:fixed;inset:0;background:rgba(11,14,20,.97);
+    position:fixed;inset:0;background:var(--bg);
     display:flex;align-items:center;justify-content:center;z-index:1000
   }
   #loginCard{
-    background:var(--panel);border:1px solid #2a3144;border-radius:var(--round);
-    padding:48px 40px;text-align:center;max-width:420px;width:90%;box-shadow:var(--shadow)
+    background:var(--panel);border:1px solid var(--border);border-radius:16px;
+    padding:48px 44px;text-align:center;max-width:400px;width:90%;
+    box-shadow:var(--shadow-lg)
   }
-  #loginCard h1{margin:0 0 8px;font-size:28px;color:var(--accent)}
-  #loginCard p{color:var(--muted);margin:0 0 28px;font-size:15px;line-height:1.5}
+  #loginCard h1{
+    font-size:24px;font-weight:700;color:var(--text);
+    margin-bottom:6px;letter-spacing:-.03em
+  }
+  #loginCard p{color:var(--muted);margin-bottom:32px;font-size:14px;line-height:1.6}
   #googleSignInBtn{
-    background:#fff;color:#333;border:1px solid #ddd;border-radius:8px;
-    padding:12px 24px;font-size:15px;cursor:pointer;display:inline-flex;align-items:center;
-    gap:12px;font-weight:500;transition:all .2s ease
+    font-family:inherit;background:#fff;color:#1f2937;border:none;border-radius:10px;
+    padding:12px 28px;font-size:14px;font-weight:500;cursor:pointer;
+    display:inline-flex;align-items:center;gap:10px;
+    transition:all .2s var(--ease);box-shadow:0 2px 8px rgba(0,0,0,.15)
   }
-  #googleSignInBtn:hover{background:#f5f5f5;transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.3)}
-  #googleSignInBtn svg{width:20px;height:20px;flex-shrink:0}
+  #googleSignInBtn:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,.25)}
+  #googleSignInBtn:active{transform:translateY(0)}
+  #googleSignInBtn svg{width:18px;height:18px;flex-shrink:0}
 
   /* ── User bar ── */
   #userBar{
     display:flex;align-items:center;justify-content:flex-end;gap:10px;
-    margin-bottom:14px;padding:8px 14px;
-    background:var(--panel);border:1px solid #262d40;border-radius:var(--round)
+    margin-bottom:16px;padding:0 4px
   }
-  #userAvatar{width:28px;height:28px;border-radius:999px;border:1px solid #303853}
-  #userName{font-size:14px;color:var(--muted)}
+  #userAvatar{width:26px;height:26px;border-radius:999px;border:2px solid var(--border)}
+  #userName{font-size:13px;color:var(--muted);font-weight:500}
   #signOutBtn{
-    background:#151b2b;color:var(--muted);border:1px solid #303853;
-    border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer;transition:all .2s ease
+    background:transparent;color:var(--muted);border:1px solid var(--border);
+    border-radius:6px;padding:5px 10px;font-size:12px
   }
-  #signOutBtn:hover{color:var(--text);background:#1a2030}
+  #signOutBtn:hover{color:var(--text);border-color:var(--border-hover)}
 
-  /* ── Save / loading indicators ── */
+  /* ── Indicators ── */
   #saveIndicator{
-    position:fixed;bottom:20px;right:20px;border-radius:8px;padding:8px 16px;
-    font-size:13px;z-index:200;opacity:0;pointer-events:none;
-    background:var(--panel);border:1px solid #262d40;color:var(--muted);
-    transition:opacity .3s ease
+    position:fixed;bottom:20px;right:20px;border-radius:var(--round-sm);
+    padding:8px 14px;font-size:12px;font-weight:500;z-index:200;
+    opacity:0;pointer-events:none;
+    background:var(--panel);border:1px solid var(--border);color:var(--muted);
+    transition:opacity .3s var(--ease)
   }
-  #saveIndicator.saving{border-color:var(--accent);color:var(--accent);opacity:1}
-  #saveIndicator.saved{border-color:var(--green);color:var(--green);opacity:1}
+  #saveIndicator.saving{border-color:var(--accent-border);color:var(--accent);opacity:1}
+  #saveIndicator.saved{border-color:var(--green-border);color:var(--green);opacity:1}
 
   #loadingScreen{
-    position:fixed;inset:0;background:rgba(11,14,20,.85);
-    display:flex;align-items:center;justify-content:center;z-index:500;font-size:18px;color:var(--accent)
+    position:fixed;inset:0;background:rgba(9,12,17,.9);backdrop-filter:blur(8px);
+    display:flex;align-items:center;justify-content:center;z-index:500;
+    font-size:15px;font-weight:500;color:var(--accent)
   }
 
-  @media (max-width:768px){
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+  /* ── Responsive ── */
+  @media(max-width:900px){
     .container{flex-direction:column}
-    .sidebar{width:100%;position:static;margin-bottom:20px;top:auto}
-    .month-nav{flex-direction:row;flex-wrap:wrap;gap:8px}
-    .month-nav-item{flex:1;min-width:80px}
-    .sidebar-controls{flex-direction:row;gap:8px}
-    .sidebar-controls select,.sidebar-controls button{flex:1}
+    .sidebar{width:100%;position:static;flex-direction:row;flex-wrap:wrap;gap:12px}
+    .sidebar-section{flex:1;min-width:180px}
+    .month-nav{grid-template-columns:repeat(4,1fr)}
   }
-  @media (max-width:520px){
-    .actions{grid-template-columns:1fr}
-    .tab-nav{flex-direction:column !important;gap:12px}
-    .tab-btn{border-radius:10px;border:1px solid #303853}
-    .tab-content{border-radius:var(--round)}
-    .metrics-display{position:static;margin-top:12px;max-width:none}
-    .month-nav-item{min-width:60px;font-size:12px}
-    .legend{order:1}
+  @media(max-width:600px){
+    body{padding:12px}
+    .grid{gap:4px}
+    .day{min-height:90px;padding:6px 7px}
+    .day-num{font-size:13px}
+    .actions{opacity:1}
+    .tab-pills{flex-direction:column;width:100%}
+    .tab-btn{text-align:center}
+    .metrics-display{flex-direction:column;gap:8px}
+    .month-nav{grid-template-columns:repeat(3,1fr)}
+    .sidebar-section{min-width:unset}
   }
 </style>
 </head>
@@ -235,10 +340,10 @@
 </div>
 
 <!-- ── Loading screen ── -->
-<div id="loadingScreen" style="display:none">Loading your data…</div>
+<div id="loadingScreen" style="display:none">Loading your data...</div>
 
 <!-- ── Save indicator ── -->
-<div id="saveIndicator">Saving…</div>
+<div id="saveIndicator">Saving...</div>
 
 <!-- ── App (shown after login) ── -->
 <div id="app" style="display:none">
@@ -261,7 +366,7 @@
       </div>
 
       <div class="sidebar-section">
-        <h4>Navigate Months</h4>
+        <h4>Months</h4>
         <div class="month-nav" id="monthNav"></div>
       </div>
 
@@ -289,13 +394,13 @@
           <li>1/2 meals</li>
           <li>Passive/Deep work completed</li>
         </ul>
-        <div class="edit-hint">Click to edit</div>
+        <span class="edit-hint">Edit</span>
       </div>
 
       <!-- Tabs -->
       <div class="tabs-container">
-        <div class="tab-nav" style="display:flex;align-items:center;gap:20px;">
-          <div style="display:flex;gap:2px;">
+        <div class="tab-nav">
+          <div class="tab-pills">
             <button class="tab-btn active" data-tab="calendar">Calendar</button>
             <button class="tab-btn" data-tab="metrics">Win Metrics</button>
             <button class="tab-btn" data-tab="plans">Monthly Plans</button>
@@ -303,7 +408,6 @@
           <div class="legend">
             <span class="pill"><i class="dot win"></i> Win</span>
             <span class="pill"><i class="dot lose"></i> Lose</span>
-            <span class="muted">Click a day's <b>Win</b> or <b>Lose</b> to color the box.</span>
           </div>
         </div>
 
@@ -319,22 +423,22 @@
         </div>
 
         <div id="metrics-tab" class="tab-content">
-          <h3 style="margin:0 0 16px;font-size:20px;color:var(--accent)">Win Metrics</h3>
+          <h3 style="margin:0 0 20px;font-size:18px;font-weight:600;color:var(--text);letter-spacing:-.02em">Win Metrics</h3>
           <form class="metrics-form" id="metricsForm">
             <div class="metric-item">
-              <label for="metric1">Metric 1:</label>
+              <label for="metric1">Metric 1</label>
               <input type="text" id="metric1" placeholder="e.g., 14 hours fasted" />
             </div>
             <div class="metric-item">
-              <label for="metric2">Metric 2:</label>
+              <label for="metric2">Metric 2</label>
               <input type="text" id="metric2" placeholder="e.g., Protein meals" />
             </div>
             <div class="metric-item">
-              <label for="metric3">Metric 3:</label>
+              <label for="metric3">Metric 3</label>
               <input type="text" id="metric3" placeholder="e.g., 1/2 meals" />
             </div>
             <div class="metric-item">
-              <label for="metric4">Metric 4:</label>
+              <label for="metric4">Metric 4</label>
               <input type="text" id="metric4" placeholder="e.g., Passive/Deep work completed" />
             </div>
             <div class="metrics-actions">
@@ -345,9 +449,9 @@
         </div>
 
         <div id="plans-tab" class="tab-content">
-          <h3 style="margin:0 0 16px;font-size:20px;color:var(--accent)">All Plans Overview</h3>
-          <p style="margin:0 0 16px;color:var(--muted);font-size:14px">
-            All your daily plans from across the year, sorted by proximity to today's date. Edit plans directly on individual day cards.
+          <h3 style="margin:0 0 6px;font-size:18px;font-weight:600;color:var(--text);letter-spacing:-.02em">All Plans</h3>
+          <p style="margin:0 0 16px;color:var(--muted);font-size:13px">
+            Plans from across the year, sorted by proximity to today.
           </p>
           <div class="plans-list" id="plansList"></div>
         </div>
@@ -363,8 +467,7 @@
 
 <script>
 // ================================================================
-//  STEP 1 — Paste your Firebase config here.
-//  Get it from: Firebase Console → Project Settings → Your apps
+//  Firebase config
 // ================================================================
 const firebaseConfig = {
   apiKey:            "AIzaSyCkmuDlmyxI4o_-xEEox6ecPf5fvNrGegM",
@@ -468,6 +571,7 @@ function scheduleYearSave(){
 // ── App state ───────────────────────────────────────────────────
 const MONTHS = ["January","February","March","April","May","June",
                 "July","August","September","October","November","December"];
+const SHORT_MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const today = new Date();
 let currentYear  = today.getFullYear();
 let currentMonth = today.getMonth();
@@ -534,7 +638,7 @@ function populateYearOptions(){
 
 function populateMonthNavigation(){
   monthNavContainer.innerHTML = "";
-  MONTHS.forEach((name, i) => {
+  SHORT_MONTHS.forEach((name, i) => {
     const item = document.createElement("div");
     item.className = `month-nav-item ${i === currentMonth ? "active" : ""}`;
     item.textContent = name;
@@ -625,7 +729,7 @@ function updatePlansList(){
   plansListContainer.innerHTML = "";
   const all = getAllPlansWithDates();
   if(!all.length){
-    plansListContainer.innerHTML = '<div class="no-plans">No plans found. Add plans to individual days to see them here.</div>';
+    plansListContainer.innerHTML = '<div class="no-plans">No plans yet. Add plans to individual days to see them here.</div>';
     return;
   }
   all.forEach(p => {
@@ -665,6 +769,10 @@ function getAllPlansWithDates(){
 // ── Calendar render ─────────────────────────────────────────────
 function daysInMonth(m, y){ return new Date(y, m+1, 0).getDate(); }
 
+function isToday(d){
+  return currentYear === today.getFullYear() && currentMonth === today.getMonth() && d === today.getDate();
+}
+
 function renderMonth(){
   monthTitle.textContent = `${MONTHS[currentMonth]} ${currentYear}`;
   daysGrid.innerHTML = "";
@@ -679,13 +787,16 @@ function renderMonth(){
   for(let d = 1; d <= total; d++){
     const status = monthState[d] || null;
     const card = document.createElement("div");
-    card.className = `day${status ? " "+status : ""}`;
+    let cls = "day";
+    if(status) cls += " " + status;
+    if(isToday(d)) cls += " today";
+    card.className = cls;
     card.dataset.day = String(d);
 
     const header = document.createElement("div"); header.className = "day-header";
     const num = document.createElement("div"); num.className = "day-num"; num.textContent = String(d);
     const stateEl = document.createElement("div"); stateEl.className = "state";
-    stateEl.textContent = status ? (status === "win" ? "Win" : "Lose") : "—";
+    stateEl.textContent = status ? (status === "win" ? "Win" : "Lose") : "\u2014";
     header.append(num, stateEl);
 
     // Reasoning
@@ -741,7 +852,7 @@ function updateStats(){
   let wins = 0, loses = 0;
   Object.values(s).forEach(v => { if(v==="win") wins++; else if(v==="lose") loses++; });
   const total = wins + loses;
-  statsEl.textContent = `Wins: ${wins} • Losses: ${loses} • Win Rate: ${total > 0 ? (wins/total*100).toFixed(1) : "0.0"}%`;
+  statsEl.textContent = `Wins: ${wins}  \u2022  Losses: ${loses}  \u2022  Win Rate: ${total > 0 ? (wins/total*100).toFixed(1) : "0.0"}%`;
 }
 
 function toggleStatus(day, target){
@@ -759,7 +870,7 @@ function setStatus(day, status){
     card.classList.remove("win","lose");
     const label = card.querySelector(".state");
     if(status){ card.classList.add(status); label.textContent = status==="win" ? "Win" : "Lose"; }
-    else { label.textContent = "—"; }
+    else { label.textContent = "\u2014"; }
   }
   updateStats();
 }
