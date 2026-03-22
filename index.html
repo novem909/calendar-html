@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Win/Lose Calendar</title>
+<style>
+  :root{
+    --bg:#0b0e14;--panel:#121723;--muted:#8a91a4;--text:#e6e9ef;
+    --accent:#5ac8fa;--green:#17c964;--red:#f31260;--round:14px;
+    --shadow:0 10px 30px rgba(0,0,0,.45);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;padding:24px;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial;
+    background:radial-gradient(1200px 800px at 80% -20%,#1a2030,var(--bg));color:var(--text);
+  }
+  .container{max-width:1400px;margin:0 auto;position:relative;display:flex;gap:20px}
+  .main-content{flex:1}
+  header{display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-bottom:18px}
+  .controls{
+    display:flex;gap:12px;align-items:center;flex-wrap:wrap;
+    background:linear-gradient(180deg,#101523,#0e1420);
+    border:1px solid #2a3144;border-radius:var(--round);padding:10px 12px;box-shadow:var(--shadow)
+  }
+  select,button,.pill{
+    background:#151b2b;color:var(--text);border:1px solid #303853;border-radius:10px;padding:10px 12px;font-size:14px
+  }
+  select:focus,button:focus{outline:2px solid var(--accent);outline-offset:2px}
+  .legend{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .pill{display:inline-flex;align-items:center;gap:8px}
+  .dot{width:12px;height:12px;border-radius:999px;display:inline-block}
+  .dot.win{background:var(--green)} .dot.lose{background:var(--red)}
+
+  .panel{
+    background:linear-gradient(180deg,#111624,#0f1522);
+    border:1px solid #262d40;border-radius:var(--round);box-shadow:var(--shadow);padding:16px
+  }
+  .month-title{font-size:20px;font-weight:700;margin:4px 0 10px;color:#dfe6f7;text-align:center}
+
+  .weekdays{
+    display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:8px;text-align:center;font-size:13px;color:var(--muted)
+  }
+  .grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+  .pad{visibility:hidden}
+
+  .day{
+    background:#0f1422;border:1px solid #273048;border-radius:12px;padding:8px;
+    display:flex;flex-direction:column;gap:4px;transition:transform .12s ease,box-shadow .12s ease,background .12s ease;min-height:110px
+  }
+  .day:hover{transform:translateY(-2px);box-shadow:0 10px 20px rgba(0,0,0,.3)}
+  .day.win{background:rgba(23,201,100,.12);border-color:rgba(23,201,100,.55)}
+  .day.lose{background:rgba(243,18,96,.12);border-color:rgba(243,18,96,.55)}
+  .day-header{display:flex;align-items:baseline;justify-content:space-between}
+  .day-num{font-size:16px;font-weight:700}
+  .state{font-size:12px;color:var(--muted)}
+  .reasoning{flex:1;margin:4px 0;min-height:30px;font-size:11px;color:var(--text);
+    padding:4px;border-radius:4px;cursor:text;line-height:1.3
+  }
+  .reasoning:hover{background:rgba(255,255,255,0.02)}
+  .reasoning.editing{
+    background:#0a0f1a;border:1px solid var(--accent);outline:none;color:var(--text)
+  }
+  .reasoning.empty:before{content:"Add reasoning...";opacity:0.6;font-style:italic}
+  .plans{flex:1;margin:4px 0;min-height:30px;font-size:11px;color:var(--text);
+    padding:4px;border-radius:4px;cursor:text;line-height:1.3;border-top:1px solid #2a3144;margin-top:8px;padding-top:8px
+  }
+  .plans:hover{background:rgba(255,255,255,0.02)}
+  .plans.editing{
+    background:#0a0f1a;border:1px solid var(--accent);outline:none;color:var(--text)
+  }
+  .plans.empty:before{content:"Add plans...";opacity:0.6;font-style:italic}
+
+  /* Sidebar */
+  .sidebar{
+    width:220px;background:var(--panel);border:1px solid #262d40;border-radius:var(--round);
+    box-shadow:var(--shadow);padding:20px;height:fit-content;position:sticky;top:80px;display:flex;flex-direction:column;gap:20px
+  }
+  .sidebar h3{margin:0 0 12px;font-size:16px;color:var(--accent)}
+  .month-nav{display:flex;flex-direction:column;gap:4px}
+  .month-nav-item{
+    background:#151b2b;color:var(--text);border:1px solid #303853;border-radius:8px;
+    padding:10px 12px;font-size:14px;cursor:pointer;transition:all .2s ease;text-align:center
+  }
+  .month-nav-item:hover{background:#1a2030;transform:translateY(-1px)}
+  .month-nav-item.active{background:var(--accent);color:#000;font-weight:600}
+
+  .sidebar-section{display:flex;flex-direction:column;gap:12px}
+  .sidebar-section h4{margin:0;font-size:14px;color:var(--accent);font-weight:600}
+  .sidebar-controls{display:flex;flex-direction:column;gap:8px}
+  .sidebar-controls select,.sidebar-controls button{
+    background:#151b2b;color:var(--text);border:1px solid #303853;border-radius:8px;
+    padding:8px 10px;font-size:13px;cursor:pointer;transition:all .2s ease
+  }
+  .sidebar-controls button:hover{background:#1a2030;transform:translateY(-1px)}
+
+  /* Plans List */
+  .plans-list{display:flex;flex-direction:column;gap:12px;max-height:60vh;overflow-y:auto}
+  .plan-item{
+    background:#151b2b;border:1px solid #303853;border-radius:8px;padding:12px;
+    transition:all .2s ease
+  }
+  .plan-item:hover{background:#1a2030;transform:translateY(-1px)}
+  .plan-item-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  .plan-item-month{font-size:14px;font-weight:600;color:var(--accent)}
+  .plan-item-date{font-size:12px;color:var(--muted)}
+  .plan-item-content{font-size:13px;color:var(--text);line-height:1.4}
+  .plan-item-day{font-size:12px;color:var(--muted);margin-top:4px}
+  .no-plans{text-align:center;color:var(--muted);font-style:italic;padding:40px 20px}
+  .actions{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:auto}
+  .btn-win,.btn-lose{padding:6px 8px;font-size:12px;border-radius:6px}
+  .btn-win{background:linear-gradient(180deg,rgba(23,201,100,.18),rgba(23,201,100,.12));border-color:rgba(23,201,100,.55)}
+  .btn-lose{background:linear-gradient(180deg,rgba(243,18,96,.2),rgba(243,18,96,.12));border-color:rgba(243,18,96,.55)}
+  .footer{display:flex;gap:10px;justify-content:flex-end;margin-top:14px}
+  .muted{color:var(--muted);font-size:12px}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+  /* Tabs */
+  .tabs-container{margin-top:20px}
+  .tab-nav{display:flex;gap:2px;margin-bottom:16px}
+  .tab-btn{
+    background:#151b2b;color:var(--text);border:1px solid #303853;border-bottom:none;
+    border-radius:10px 10px 0 0;padding:12px 20px;font-size:14px;cursor:pointer;transition:all .2s ease
+  }
+  .tab-btn:hover{background:#1a2030}
+  .tab-btn.active{background:var(--panel);border-color:#2a3144;color:var(--accent)}
+  .tab-content{display:none;background:var(--panel);border:1px solid #2a3144;border-radius:0 var(--round) var(--round) var(--round);padding:20px;box-shadow:var(--shadow)}
+  .tab-content.active{display:block}
+
+  /* Metrics form */
+  .metrics-form{display:flex;flex-direction:column;gap:12px}
+  .metric-item{display:flex;flex-direction:column;gap:6px}
+  .metric-item label{font-size:14px;color:var(--accent);font-weight:600}
+  .metric-item input{background:#151b2b;color:var(--text);border:1px solid #303853;border-radius:8px;padding:10px 12px;font-size:14px}
+  .metric-item input:focus{outline:2px solid var(--accent);outline-offset:2px}
+  .metrics-actions{display:flex;gap:8px;margin-top:8px}
+  .btn-save{background:linear-gradient(180deg,rgba(23,201,100,.18),rgba(23,201,100,.12));border-color:rgba(23,201,100,.55)}
+  .btn-reset{background:#161c2d;border-style:dashed;color:#cbd5e1}
+
+  /* Win Metrics display box */
+  .metrics-display{
+    position:absolute;top:24px;right:24px;background:var(--panel);border:1px solid #2a3144;border-radius:var(--round);
+    padding:12px 16px;box-shadow:var(--shadow);max-width:220px;cursor:pointer;transition:all .2s ease
+  }
+  .metrics-display:hover{transform:translateY(-1px);box-shadow:0 12px 35px rgba(0,0,0,.5)}
+  .metrics-display h3{margin:0 0 8px;font-size:16px;color:var(--accent)}
+  .metrics-display ul{list-style:none;margin:0;padding:0}
+  .metrics-display li{font-size:14px;margin:4px 0;color:var(--text)}
+  .metrics-display .edit-hint{font-size:12px;color:var(--muted);margin-top:8px;font-style:italic}
+
+  /* ── Login overlay ── */
+  #loginOverlay{
+    position:fixed;inset:0;background:rgba(11,14,20,.97);
+    display:flex;align-items:center;justify-content:center;z-index:1000
+  }
+  #loginCard{
+    background:var(--panel);border:1px solid #2a3144;border-radius:var(--round);
+    padding:48px 40px;text-align:center;max-width:420px;width:90%;box-shadow:var(--shadow)
+  }
+  #loginCard h1{margin:0 0 8px;font-size:28px;color:var(--accent)}
+  #loginCard p{color:var(--muted);margin:0 0 28px;font-size:15px;line-height:1.5}
+  #googleSignInBtn{
+    background:#fff;color:#333;border:1px solid #ddd;border-radius:8px;
+    padding:12px 24px;font-size:15px;cursor:pointer;display:inline-flex;align-items:center;
+    gap:12px;font-weight:500;transition:all .2s ease
+  }
+  #googleSignInBtn:hover{background:#f5f5f5;transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.3)}
+  #googleSignInBtn svg{width:20px;height:20px;flex-shrink:0}
+
+  /* ── User bar ── */
+  #userBar{
+    display:flex;align-items:center;justify-content:flex-end;gap:10px;
+    margin-bottom:14px;padding:8px 14px;
+    background:var(--panel);border:1px solid #262d40;border-radius:var(--round)
+  }
+  #userAvatar{width:28px;height:28px;border-radius:999px;border:1px solid #303853}
+  #userName{font-size:14px;color:var(--muted)}
+  #signOutBtn{
+    background:#151b2b;color:var(--muted);border:1px solid #303853;
+    border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer;transition:all .2s ease
+  }
+  #signOutBtn:hover{color:var(--text);background:#1a2030}
+
+  /* ── Save / loading indicators ── */
+  #saveIndicator{
+    position:fixed;bottom:20px;right:20px;border-radius:8px;padding:8px 16px;
+    font-size:13px;z-index:200;opacity:0;pointer-events:none;
+    background:var(--panel);border:1px solid #262d40;color:var(--muted);
+    transition:opacity .3s ease
+  }
+  #saveIndicator.saving{border-color:var(--accent);color:var(--accent);opacity:1}
+  #saveIndicator.saved{border-color:var(--green);color:var(--green);opacity:1}
+
+  #loadingScreen{
+    position:fixed;inset:0;background:rgba(11,14,20,.85);
+    display:flex;align-items:center;justify-content:center;z-index:500;font-size:18px;color:var(--accent)
+  }
+
+  @media (max-width:768px){
+    .container{flex-direction:column}
+    .sidebar{width:100%;position:static;margin-bottom:20px;top:auto}
+    .month-nav{flex-direction:row;flex-wrap:wrap;gap:8px}
+    .month-nav-item{flex:1;min-width:80px}
+    .sidebar-controls{flex-direction:row;gap:8px}
+    .sidebar-controls select,.sidebar-controls button{flex:1}
+  }
+  @media (max-width:520px){
+    .actions{grid-template-columns:1fr}
+    .tab-nav{flex-direction:column !important;gap:12px}
+    .tab-btn{border-radius:10px;border:1px solid #303853}
+    .tab-content{border-radius:var(--round)}
+    .metrics-display{position:static;margin-top:12px;max-width:none}
+    .month-nav-item{min-width:60px;font-size:12px}
+    .legend{order:1}
+  }
+</style>
+</head>
+<body>
+
+<!-- ── Login overlay ── -->
+<div id="loginOverlay">
+  <div id="loginCard">
+    <h1>Win/Lose Calendar</h1>
+    <p>Sign in with Google to save your data to the cloud and access it from any device.</p>
+    <button id="googleSignInBtn">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+      </svg>
+      Sign in with Google
+    </button>
+  </div>
+</div>
+
+<!-- ── Loading screen ── -->
+<div id="loadingScreen" style="display:none">Loading your data…</div>
+
+<!-- ── Save indicator ── -->
+<div id="saveIndicator">Saving…</div>
+
+<!-- ── App (shown after login) ── -->
+<div id="app" style="display:none">
+
+  <!-- User bar -->
+  <div id="userBar">
+    <img id="userAvatar" src="" alt="" style="display:none"/>
+    <span id="userName"></span>
+    <button id="signOutBtn">Sign Out</button>
+  </div>
+
+  <div class="container">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-section">
+        <h4>Year</h4>
+        <div class="sidebar-controls">
+          <select id="yearSelect" title="Select year"></select>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <h4>Navigate Months</h4>
+        <div class="month-nav" id="monthNav"></div>
+      </div>
+
+      <div class="sidebar-section">
+        <h4>Actions</h4>
+        <div class="sidebar-controls">
+          <button id="resetMonth" title="Clear statuses in this month">Reset Month</button>
+          <button id="exportData" title="Download your data as JSON">Export</button>
+          <button id="importData" title="Import previously exported data">Import</button>
+          <input id="importFile" type="file" accept="application/json" style="display:none"/>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <header></header>
+
+      <!-- Win Metrics display box -->
+      <div class="metrics-display" id="metricsDisplay" title="Click to edit metrics">
+        <h3>Win Metrics</h3>
+        <ul id="metricsDisplayList">
+          <li>14 hours fasted</li>
+          <li>Protein meals</li>
+          <li>1/2 meals</li>
+          <li>Passive/Deep work completed</li>
+        </ul>
+        <div class="edit-hint">Click to edit</div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs-container">
+        <div class="tab-nav" style="display:flex;align-items:center;gap:20px;">
+          <div style="display:flex;gap:2px;">
+            <button class="tab-btn active" data-tab="calendar">Calendar</button>
+            <button class="tab-btn" data-tab="metrics">Win Metrics</button>
+            <button class="tab-btn" data-tab="plans">Monthly Plans</button>
+          </div>
+          <div class="legend">
+            <span class="pill"><i class="dot win"></i> Win</span>
+            <span class="pill"><i class="dot lose"></i> Lose</span>
+            <span class="muted">Click a day's <b>Win</b> or <b>Lose</b> to color the box.</span>
+          </div>
+        </div>
+
+        <div id="calendar-tab" class="tab-content active">
+          <section class="panel">
+            <h2 id="monthTitle" class="month-title"></h2>
+            <div class="weekdays">
+              <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+            </div>
+            <div id="daysGrid" class="grid" aria-live="polite"></div>
+            <div class="footer"><span id="stats" class="muted"></span></div>
+          </section>
+        </div>
+
+        <div id="metrics-tab" class="tab-content">
+          <h3 style="margin:0 0 16px;font-size:20px;color:var(--accent)">Win Metrics</h3>
+          <form class="metrics-form" id="metricsForm">
+            <div class="metric-item">
+              <label for="metric1">Metric 1:</label>
+              <input type="text" id="metric1" placeholder="e.g., 14 hours fasted" />
+            </div>
+            <div class="metric-item">
+              <label for="metric2">Metric 2:</label>
+              <input type="text" id="metric2" placeholder="e.g., Protein meals" />
+            </div>
+            <div class="metric-item">
+              <label for="metric3">Metric 3:</label>
+              <input type="text" id="metric3" placeholder="e.g., 1/2 meals" />
+            </div>
+            <div class="metric-item">
+              <label for="metric4">Metric 4:</label>
+              <input type="text" id="metric4" placeholder="e.g., Passive/Deep work completed" />
+            </div>
+            <div class="metrics-actions">
+              <button type="button" class="btn-save" id="saveMetrics">Save Metrics</button>
+              <button type="button" class="btn-reset" id="resetMetrics">Reset to Default</button>
+            </div>
+          </form>
+        </div>
+
+        <div id="plans-tab" class="tab-content">
+          <h3 style="margin:0 0 16px;font-size:20px;color:var(--accent)">All Plans Overview</h3>
+          <p style="margin:0 0 16px;color:var(--muted);font-size:14px">
+            All your daily plans from across the year, sorted by proximity to today's date. Edit plans directly on individual day cards.
+          </p>
+          <div class="plans-list" id="plansList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Firebase SDKs (compat build — no bundler needed) ── -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+<script>
+// ================================================================
+//  STEP 1 — Paste your Firebase config here.
+//  Get it from: Firebase Console → Project Settings → Your apps
+// ================================================================
+const firebaseConfig = {
+  apiKey:            "AIzaSyCkmuDlmyxI4o_-xEEox6ecPf5fvNrGegM",
+  authDomain:        "calendar-9f2f2.firebaseapp.com",
+  projectId:         "calendar-9f2f2",
+  storageBucket:     "calendar-9f2f2.firebasestorage.app",
+  messagingSenderId: "670249621587",
+  appId:             "1:670249621587:web:c88d0dc63cb64866148ea6"
+};
+// ================================================================
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db   = firebase.firestore();
+
+// ── UI helpers ──────────────────────────────────────────────────
+const loginOverlay   = document.getElementById("loginOverlay");
+const loadingScreen  = document.getElementById("loadingScreen");
+const appEl          = document.getElementById("app");
+const saveIndicator  = document.getElementById("saveIndicator");
+
+function showLoading(){ loadingScreen.style.display = "flex"; }
+function hideLoading(){ loadingScreen.style.display = "none"; }
+
+let saveTimer = null;
+let savedTimer = null;
+function flashSaving(){
+  saveIndicator.className = "saving";
+  clearTimeout(savedTimer);
+}
+function flashSaved(){
+  saveIndicator.className = "saved";
+  savedTimer = setTimeout(() => { saveIndicator.className = ""; }, 2000);
+}
+
+// ── Auth ────────────────────────────────────────────────────────
+document.getElementById("googleSignInBtn").addEventListener("click", () => {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider).catch(err => alert("Sign-in failed: " + err.message));
+});
+
+document.getElementById("signOutBtn").addEventListener("click", () => auth.signOut());
+
+auth.onAuthStateChanged(user => {
+  if (user) {
+    loginOverlay.style.display = "none";
+    document.getElementById("userName").textContent = user.displayName || user.email;
+    const avatar = document.getElementById("userAvatar");
+    if (user.photoURL) { avatar.src = user.photoURL; avatar.style.display = ""; }
+    bootApp();
+  } else {
+    appEl.style.display = "none";
+    loginOverlay.style.display = "flex";
+  }
+});
+
+// ── Firestore helpers ───────────────────────────────────────────
+function userRef(){ return db.collection("users").doc(auth.currentUser.uid); }
+function yearDocRef(year){ return userRef().collection("years").doc(String(year)); }
+function metricsDocRef(){ return userRef().collection("config").doc("metrics"); }
+
+async function fsLoadYear(year){
+  const snap = await yearDocRef(year).get();
+  return snap.exists ? snap.data() : {};
+}
+
+async function fsSaveYear(year, data){
+  flashSaving();
+  try {
+    await yearDocRef(year).set(data);
+    flashSaved();
+  } catch(e){ console.warn("Firestore save failed:", e); }
+}
+
+async function fsLoadMetrics(){
+  const snap = await metricsDocRef().get();
+  return snap.exists ? snap.data() : defaultMetrics();
+}
+
+async function fsSaveMetrics(data){
+  flashSaving();
+  try {
+    await metricsDocRef().set(data);
+    flashSaved();
+  } catch(e){ console.warn("Firestore metrics save failed:", e); }
+}
+
+function scheduleYearSave(){
+  flashSaving();
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    fsSaveYear(currentYear, {
+      data: yearState,
+      reasoning: reasoningState,
+      plans: plansState,
+      templates: templateState
+    });
+  }, 1500);
+}
+
+// ── App state ───────────────────────────────────────────────────
+const MONTHS = ["January","February","March","April","May","June",
+                "July","August","September","October","November","December"];
+const today = new Date();
+let currentYear  = today.getFullYear();
+let currentMonth = today.getMonth();
+let yearState = {}, reasoningState = {}, plansState = {}, templateState = {};
+let metrics = defaultMetrics();
+
+function defaultMetrics(){
+  return {
+    metric1: "14 hours fasted",
+    metric2: "Protein meals",
+    metric3: "1/2 meals",
+    metric4: "Passive/Deep work completed"
+  };
+}
+
+// ── DOM refs ────────────────────────────────────────────────────
+const yearSelect          = document.getElementById("yearSelect");
+const monthTitle          = document.getElementById("monthTitle");
+const daysGrid            = document.getElementById("daysGrid");
+const statsEl             = document.getElementById("stats");
+const resetBtn            = document.getElementById("resetMonth");
+const exportBtn           = document.getElementById("exportData");
+const importBtn           = document.getElementById("importData");
+const importFile          = document.getElementById("importFile");
+const tabBtns             = document.querySelectorAll(".tab-btn");
+const tabContents         = document.querySelectorAll(".tab-content");
+const saveMetricsBtn      = document.getElementById("saveMetrics");
+const resetMetricsBtn     = document.getElementById("resetMetrics");
+const monthNavContainer   = document.getElementById("monthNav");
+const plansListContainer  = document.getElementById("plansList");
+
+// ── Boot ────────────────────────────────────────────────────────
+async function bootApp(){
+  showLoading();
+  try {
+    metrics = await fsLoadMetrics();
+    const yearData = await fsLoadYear(currentYear);
+    yearState      = yearData.data      || {};
+    reasoningState = yearData.reasoning || {};
+    plansState     = yearData.plans     || {};
+    templateState  = yearData.templates || {};
+  } catch(e){ console.warn("Failed to load data:", e); }
+  hideLoading();
+  appEl.style.display = "";
+  populateYearOptions();
+  populateMonthNavigation();
+  renderMonth();
+  loadMetricsForm();
+  updateMetricsDisplay();
+  updatePlansList();
+}
+
+// ── Year/month navigation ───────────────────────────────────────
+function populateYearOptions(){
+  yearSelect.innerHTML = "";
+  const start = 2025, end = currentYear + 5;
+  for(let y = start; y <= end; y++){
+    const opt = document.createElement("option");
+    opt.value = String(y); opt.textContent = String(y);
+    if(y === currentYear) opt.selected = true;
+    yearSelect.appendChild(opt);
+  }
+}
+
+function populateMonthNavigation(){
+  monthNavContainer.innerHTML = "";
+  MONTHS.forEach((name, i) => {
+    const item = document.createElement("div");
+    item.className = `month-nav-item ${i === currentMonth ? "active" : ""}`;
+    item.textContent = name;
+    item.addEventListener("click", () => navigateToMonth(i));
+    monthNavContainer.appendChild(item);
+  });
+}
+
+function updateMonthNavigation(){
+  monthNavContainer.querySelectorAll(".month-nav-item")
+    .forEach((el, i) => el.classList.toggle("active", i === currentMonth));
+}
+
+function navigateToMonth(idx){
+  currentMonth = idx;
+  renderMonth();
+  updateMonthNavigation();
+  updatePlansList();
+}
+
+yearSelect.addEventListener("change", async () => {
+  currentYear = Number(yearSelect.value);
+  showLoading();
+  try {
+    const yearData = await fsLoadYear(currentYear);
+    yearState      = yearData.data      || {};
+    reasoningState = yearData.reasoning || {};
+    plansState     = yearData.plans     || {};
+    templateState  = yearData.templates || {};
+  } catch(e){ console.warn("Failed to load year:", e); }
+  hideLoading();
+  renderMonth();
+  updateMonthNavigation();
+  updatePlansList();
+});
+
+// ── Tab switching ───────────────────────────────────────────────
+function switchTab(target){
+  tabBtns.forEach(b => b.classList.remove("active"));
+  tabContents.forEach(c => c.classList.remove("active"));
+  document.querySelector(`[data-tab="${target}"]`).classList.add("active");
+  document.getElementById(`${target}-tab`).classList.add("active");
+}
+tabBtns.forEach(btn => btn.addEventListener("click", () => switchTab(btn.dataset.tab)));
+document.getElementById("metricsDisplay").addEventListener("click", () => switchTab("metrics"));
+
+// ── Metrics ─────────────────────────────────────────────────────
+function loadMetricsForm(){
+  document.getElementById("metric1").value = metrics.metric1 || "";
+  document.getElementById("metric2").value = metrics.metric2 || "";
+  document.getElementById("metric3").value = metrics.metric3 || "";
+  document.getElementById("metric4").value = metrics.metric4 || "";
+}
+
+function updateMetricsDisplay(){
+  const list = document.getElementById("metricsDisplayList");
+  list.innerHTML = "";
+  [metrics.metric1, metrics.metric2, metrics.metric3, metrics.metric4].forEach(m => {
+    if(m && m.trim()){ const li = document.createElement("li"); li.textContent = m; list.appendChild(li); }
+  });
+}
+
+function saveMetricsFromForm(){
+  metrics = {
+    metric1: document.getElementById("metric1").value,
+    metric2: document.getElementById("metric2").value,
+    metric3: document.getElementById("metric3").value,
+    metric4: document.getElementById("metric4").value
+  };
+  fsSaveMetrics(metrics);
+  updateMetricsDisplay();
+  alert("Metrics saved!");
+}
+
+function resetMetricsToDefault(){
+  if(!confirm("Reset metrics to default values?")) return;
+  metrics = defaultMetrics();
+  fsSaveMetrics(metrics);
+  loadMetricsForm();
+  updateMetricsDisplay();
+}
+
+saveMetricsBtn.addEventListener("click", saveMetricsFromForm);
+resetMetricsBtn.addEventListener("click", resetMetricsToDefault);
+
+// ── Plans list ──────────────────────────────────────────────────
+function updatePlansList(){
+  plansListContainer.innerHTML = "";
+  const all = getAllPlansWithDates();
+  if(!all.length){
+    plansListContainer.innerHTML = '<div class="no-plans">No plans found. Add plans to individual days to see them here.</div>';
+    return;
+  }
+  all.forEach(p => {
+    const item = document.createElement("div");
+    item.className = "plan-item";
+    item.addEventListener("click", () => navigateToMonth(p.month));
+    item.innerHTML = `
+      <div class="plan-item-header">
+        <span class="plan-item-month">${MONTHS[p.month]}</span>
+        <span class="plan-item-date">${p.daysToCurrent} days ${p.isPast ? "ago" : "from now"}</span>
+      </div>
+      <div class="plan-item-content">${p.content}</div>
+      <div class="plan-item-day">Day ${p.day}</div>`;
+    plansListContainer.appendChild(item);
+  });
+}
+
+function getAllPlansWithDates(){
+  const result = [];
+  const now = new Date(); now.setHours(0,0,0,0);
+  for(let m = 0; m < 12; m++){
+    if(!plansState[m]) continue;
+    for(const [d, content] of Object.entries(plansState[m])){
+      if(!content || !content.trim()) continue;
+      const pd = new Date(currentYear, m, parseInt(d)); pd.setHours(0,0,0,0);
+      const diff = pd - now;
+      result.push({ month: m, day: parseInt(d), content,
+        daysToCurrent: Math.round(Math.abs(diff) / 86400000),
+        isPast: diff < 0,
+        absoluteDaysDiff: Math.round(Math.abs(diff) / 86400000) });
+    }
+  }
+  result.sort((a,b) => a.absoluteDaysDiff - b.absoluteDaysDiff);
+  return result;
+}
+
+// ── Calendar render ─────────────────────────────────────────────
+function daysInMonth(m, y){ return new Date(y, m+1, 0).getDate(); }
+
+function renderMonth(){
+  monthTitle.textContent = `${MONTHS[currentMonth]} ${currentYear}`;
+  daysGrid.innerHTML = "";
+  const total    = daysInMonth(currentMonth, currentYear);
+  const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+  const monthState = yearState[currentMonth] || {};
+
+  for(let i = 0; i < firstDay; i++){
+    const pad = document.createElement("div"); pad.className = "pad"; daysGrid.appendChild(pad);
+  }
+
+  for(let d = 1; d <= total; d++){
+    const status = monthState[d] || null;
+    const card = document.createElement("div");
+    card.className = `day${status ? " "+status : ""}`;
+    card.dataset.day = String(d);
+
+    const header = document.createElement("div"); header.className = "day-header";
+    const num = document.createElement("div"); num.className = "day-num"; num.textContent = String(d);
+    const stateEl = document.createElement("div"); stateEl.className = "state";
+    stateEl.textContent = status ? (status === "win" ? "Win" : "Lose") : "—";
+    header.append(num, stateEl);
+
+    // Reasoning
+    const reasoningDiv = document.createElement("div");
+    const rText = (reasoningState[currentMonth] && reasoningState[currentMonth][d]) || "";
+    reasoningDiv.className = `reasoning ${rText ? "" : "empty"}`;
+    reasoningDiv.contentEditable = true;
+    reasoningDiv.textContent = rText;
+    reasoningDiv.addEventListener("focus", () => reasoningDiv.classList.add("editing"));
+    reasoningDiv.addEventListener("blur", () => {
+      reasoningDiv.classList.remove("editing");
+      const text = reasoningDiv.textContent.trim();
+      reasoningDiv.className = `reasoning ${text ? "" : "empty"}`;
+      saveReasoning(d, text);
+    });
+    reasoningDiv.addEventListener("keydown", e => {
+      if(e.key === "Enter" && !e.shiftKey){ e.preventDefault(); reasoningDiv.blur(); }
+    });
+
+    // Plans
+    const plansDiv = document.createElement("div");
+    const pText = (plansState[currentMonth] && plansState[currentMonth][d]) || "";
+    plansDiv.className = `plans ${pText ? "" : "empty"}`;
+    plansDiv.contentEditable = true;
+    plansDiv.textContent = pText;
+    plansDiv.addEventListener("focus", () => plansDiv.classList.add("editing"));
+    plansDiv.addEventListener("blur", () => {
+      plansDiv.classList.remove("editing");
+      const text = plansDiv.textContent.trim();
+      plansDiv.className = `plans ${text ? "" : "empty"}`;
+      saveDayPlans(d, text);
+    });
+    plansDiv.addEventListener("keydown", e => {
+      if(e.key === "Enter" && !e.shiftKey){ e.preventDefault(); plansDiv.blur(); }
+    });
+
+    const actions = document.createElement("div"); actions.className = "actions";
+    const btnWin  = document.createElement("button"); btnWin.type="button"; btnWin.className="btn-win"; btnWin.textContent="Win";
+    btnWin.addEventListener("click", () => toggleStatus(d, "win"));
+    const btnLose = document.createElement("button"); btnLose.type="button"; btnLose.className="btn-lose"; btnLose.textContent="Lose";
+    btnLose.addEventListener("click", () => toggleStatus(d, "lose"));
+    actions.append(btnWin, btnLose);
+
+    card.append(header, reasoningDiv, plansDiv, actions);
+    daysGrid.appendChild(card);
+  }
+  updateStats();
+}
+
+// ── Status & stats ──────────────────────────────────────────────
+function updateStats(){
+  const s = yearState[currentMonth] || {};
+  let wins = 0, loses = 0;
+  Object.values(s).forEach(v => { if(v==="win") wins++; else if(v==="lose") loses++; });
+  const total = wins + loses;
+  statsEl.textContent = `Wins: ${wins} • Losses: ${loses} • Win Rate: ${total > 0 ? (wins/total*100).toFixed(1) : "0.0"}%`;
+}
+
+function toggleStatus(day, target){
+  const cur = (yearState[currentMonth] || {})[day] || null;
+  setStatus(day, cur === target ? null : target);
+}
+
+function setStatus(day, status){
+  yearState[currentMonth] = yearState[currentMonth] || {};
+  if(status) yearState[currentMonth][day] = status;
+  else delete yearState[currentMonth][day];
+  scheduleYearSave();
+  const card = daysGrid.querySelector(`.day[data-day="${day}"]`);
+  if(card){
+    card.classList.remove("win","lose");
+    const label = card.querySelector(".state");
+    if(status){ card.classList.add(status); label.textContent = status==="win" ? "Win" : "Lose"; }
+    else { label.textContent = "—"; }
+  }
+  updateStats();
+}
+
+function saveReasoning(day, text){
+  reasoningState[currentMonth] = reasoningState[currentMonth] || {};
+  if(text) reasoningState[currentMonth][day] = text;
+  else delete reasoningState[currentMonth][day];
+  scheduleYearSave();
+}
+
+function saveDayPlans(day, text){
+  plansState[currentMonth] = plansState[currentMonth] || {};
+  if(text) plansState[currentMonth][day] = text;
+  else delete plansState[currentMonth][day];
+  scheduleYearSave();
+  updatePlansList();
+}
+
+// ── Reset month ─────────────────────────────────────────────────
+resetBtn.addEventListener("click", () => {
+  if(!confirm(`Clear all statuses for ${MONTHS[currentMonth]} ${currentYear}?`)) return;
+  delete yearState[currentMonth];
+  delete plansState[currentMonth];
+  delete reasoningState[currentMonth];
+  scheduleYearSave();
+  renderMonth();
+  updatePlansList();
+});
+
+// ── Export / Import ─────────────────────────────────────────────
+exportBtn.addEventListener("click", () => {
+  const payload = {
+    version: 1, exportedAt: new Date().toISOString(), year: currentYear,
+    data: yearState, metrics, reasoning: reasoningState,
+    plans: plansState, templates: templateState
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `winlose-calendar-${currentYear}.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+
+importBtn.addEventListener("click", () => importFile.click());
+importFile.addEventListener("change", async e => {
+  const file = e.target.files?.[0]; if(!file) return;
+  try {
+    const parsed = JSON.parse(await file.text());
+    if(!parsed || typeof parsed !== "object") throw new Error("Invalid file");
+    if(typeof parsed.year !== "number" || typeof parsed.data !== "object") throw new Error("Unexpected format");
+
+    currentYear    = parsed.year;
+    yearState      = parsed.data;
+    metrics        = parsed.metrics      || defaultMetrics();
+    reasoningState = parsed.reasoning    || {};
+    plansState     = parsed.plans        || {};
+    templateState  = parsed.templates    || {};
+
+    // Persist to Firestore
+    await fsSaveYear(currentYear, { data: yearState, reasoning: reasoningState, plans: plansState, templates: templateState });
+    await fsSaveMetrics(metrics);
+
+    if(![...yearSelect.options].some(o => Number(o.value) === currentYear)){
+      const opt = document.createElement("option");
+      opt.value = String(currentYear); opt.textContent = String(currentYear);
+      yearSelect.appendChild(opt);
+    }
+    yearSelect.value = String(currentYear);
+    renderMonth(); loadMetricsForm(); updateMonthNavigation(); updatePlansList();
+    alert("Import successful!");
+  } catch(err){ alert("Failed to import: " + err.message); }
+  finally { importFile.value = ""; }
+});
+</script>
+</body>
+</html>
