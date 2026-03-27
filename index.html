@@ -249,6 +249,61 @@
   .plan-item-day{font-size:11px;color:var(--muted);margin-top:4px}
   .no-plans{text-align:center;color:var(--muted);padding:48px 20px;font-size:14px}
 
+  /* ── Payments table ── */
+  .payments-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px}
+  .payments-header h3{margin:0;font-size:18px;font-weight:600;color:var(--text);letter-spacing:-.02em}
+  .btn-add-row{
+    color:var(--accent);border:1px solid var(--accent-border);background:var(--accent-dim);
+    border-radius:var(--round-sm);padding:7px 14px;font-size:12px;font-weight:500
+  }
+  .btn-add-row:hover{background:rgba(56,189,248,.12)}
+  .payments-table-wrap{overflow-x:auto;border-radius:var(--round-sm);border:1px solid var(--border)}
+  .payments-table{width:100%;border-collapse:collapse;font-size:13px}
+  .payments-table th{
+    background:var(--panel-raised);color:var(--muted);font-size:11px;font-weight:600;
+    text-transform:uppercase;letter-spacing:.06em;padding:10px 12px;text-align:left;
+    border-bottom:1px solid var(--border);white-space:nowrap
+  }
+  .payments-table td{
+    padding:0;border-bottom:1px solid var(--border);vertical-align:middle
+  }
+  .payments-table tr:last-child td{border-bottom:none}
+  .payments-table td input,
+  .payments-table td select{
+    width:100%;background:transparent;border:none;border-radius:0;
+    color:var(--text);padding:10px 12px;font-size:13px;font-family:inherit
+  }
+  .payments-table td input:focus,
+  .payments-table td select:focus{
+    background:var(--accent-dim);outline:none;box-shadow:inset 0 0 0 1px var(--accent-border)
+  }
+  .payments-table td input[type="number"]{text-align:right;-moz-appearance:textfield}
+  .payments-table td input[type="number"]::-webkit-inner-spin-button,
+  .payments-table td input[type="number"]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+  .payments-table .btn-del-row{
+    background:transparent;border:none;color:var(--muted);cursor:pointer;
+    padding:8px 10px;font-size:14px;transition:color .15s var(--ease)
+  }
+  .payments-table .btn-del-row:hover{color:var(--red)}
+  .payments-table .row-paid td{opacity:.5}
+  .payments-table .row-paid td input,
+  .payments-table .row-paid td select{text-decoration:line-through}
+  .payments-totals{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+    gap:10px;margin-top:16px
+  }
+  .total-card{
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--round-sm);
+    padding:14px 16px;display:flex;flex-direction:column;gap:4px
+  }
+  .total-card .total-label{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+  .total-card .total-value{font-size:20px;font-weight:700;color:var(--text);letter-spacing:-.02em}
+  .total-card.accent .total-value{color:var(--accent)}
+  .total-card.green .total-value{color:var(--green)}
+  .total-card.red .total-value{color:var(--red)}
+  .payments-empty{text-align:center;color:var(--muted);padding:48px 20px;font-size:14px}
+  .paid-check{width:16px;height:16px;cursor:pointer;accent-color:var(--green);margin:0 auto;display:block}
+
   /* ── Login overlay ── */
   #loginOverlay{
     position:fixed;inset:0;background:var(--bg);
@@ -411,6 +466,7 @@
             <button class="tab-btn active" data-tab="calendar">Calendar</button>
             <button class="tab-btn" data-tab="metrics">Win Metrics</button>
             <button class="tab-btn" data-tab="plans">Monthly Plans</button>
+            <button class="tab-btn" data-tab="payments">Payments</button>
           </div>
           <div class="legend">
             <span class="pill"><i class="dot win"></i> Win</span>
@@ -461,6 +517,29 @@
             Plans from across the year, sorted by proximity to today.
           </p>
           <div class="plans-list" id="plansList"></div>
+        </div>
+
+        <div id="payments-tab" class="tab-content">
+          <div class="payments-header">
+            <h3>Payment Tracker</h3>
+            <button class="btn-add-row" id="addPaymentRow">+ Add Payment</button>
+          </div>
+          <div class="payments-table-wrap">
+            <table class="payments-table" id="paymentsTable">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Amount ($)</th>
+                  <th>Frequency</th>
+                  <th>Category</th>
+                  <th style="text-align:center">Paid</th>
+                  <th style="width:40px"></th>
+                </tr>
+              </thead>
+              <tbody id="paymentsBody"></tbody>
+            </table>
+          </div>
+          <div class="payments-totals" id="paymentsTotals"></div>
         </div>
       </div>
     </div>
@@ -535,6 +614,7 @@ auth.onAuthStateChanged(user => {
 function userRef(){ return db.collection("users").doc(auth.currentUser.uid); }
 function yearDocRef(year){ return userRef().collection("years").doc(String(year)); }
 function metricsDocRef(){ return userRef().collection("config").doc("metrics"); }
+function paymentsDocRef(){ return userRef().collection("config").doc("payments"); }
 
 async function fsLoadYear(year){
   const snap = await yearDocRef(year).get();
@@ -562,6 +642,19 @@ async function fsSaveMetrics(data){
   } catch(e){ console.warn("Firestore metrics save failed:", e); }
 }
 
+async function fsLoadPayments(){
+  const snap = await paymentsDocRef().get();
+  return snap.exists ? snap.data().items || [] : [];
+}
+
+async function fsSavePayments(items){
+  flashSaving();
+  try {
+    await paymentsDocRef().set({ items });
+    flashSaved();
+  } catch(e){ console.warn("Firestore payments save failed:", e); }
+}
+
 function scheduleYearSave(){
   flashSaving();
   clearTimeout(saveTimer);
@@ -584,6 +677,7 @@ let currentYear  = today.getFullYear();
 let currentMonth = today.getMonth();
 let yearState = {}, reasoningState = {}, plansState = {}, templateState = {};
 let metrics = defaultMetrics();
+let paymentsState = [];
 
 function defaultMetrics(){
   return {
@@ -615,6 +709,7 @@ async function bootApp(){
   showLoading();
   try {
     metrics = await fsLoadMetrics();
+    paymentsState = await fsLoadPayments();
     const yearData = await fsLoadYear(currentYear);
     yearState      = yearData.data      || {};
     reasoningState = yearData.reasoning || {};
@@ -629,6 +724,7 @@ async function bootApp(){
   loadMetricsForm();
   updateMetricsDisplay();
   updatePlansList();
+  renderPayments();
 }
 
 // ── Year/month navigation ───────────────────────────────────────
@@ -684,12 +780,12 @@ yearSelect.addEventListener("change", async () => {
 
 // ── Tab switching ───────────────────────────────────────────────
 function switchTab(target){
-  tabBtns.forEach(b => b.classList.remove("active"));
-  tabContents.forEach(c => c.classList.remove("active"));
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+  document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
   document.querySelector(`[data-tab="${target}"]`).classList.add("active");
   document.getElementById(`${target}-tab`).classList.add("active");
 }
-tabBtns.forEach(btn => btn.addEventListener("click", () => switchTab(btn.dataset.tab)));
+document.querySelectorAll(".tab-btn").forEach(btn => btn.addEventListener("click", () => switchTab(btn.dataset.tab)));
 document.getElementById("metricsDisplay").addEventListener("click", () => switchTab("metrics"));
 
 // ── Metrics ─────────────────────────────────────────────────────
@@ -913,7 +1009,7 @@ exportBtn.addEventListener("click", () => {
   const payload = {
     version: 1, exportedAt: new Date().toISOString(), year: currentYear,
     data: yearState, metrics, reasoning: reasoningState,
-    plans: plansState, templates: templateState
+    plans: plansState, templates: templateState, payments: paymentsState
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
   const a = document.createElement("a");
@@ -937,10 +1033,12 @@ importFile.addEventListener("change", async e => {
     reasoningState = parsed.reasoning    || {};
     plansState     = parsed.plans        || {};
     templateState  = parsed.templates    || {};
+    paymentsState  = parsed.payments     || paymentsState;
 
     // Persist to Firestore
     await fsSaveYear(currentYear, { data: yearState, reasoning: reasoningState, plans: plansState, templates: templateState });
     await fsSaveMetrics(metrics);
+    if(parsed.payments) await fsSavePayments(paymentsState);
 
     if(![...yearSelect.options].some(o => Number(o.value) === currentYear)){
       const opt = document.createElement("option");
@@ -948,11 +1046,138 @@ importFile.addEventListener("change", async e => {
       yearSelect.appendChild(opt);
     }
     yearSelect.value = String(currentYear);
-    renderMonth(); loadMetricsForm(); updateMonthNavigation(); updatePlansList();
+    renderMonth(); loadMetricsForm(); updateMonthNavigation(); updatePlansList(); renderPayments();
     alert("Import successful!");
   } catch(err){ alert("Failed to import: " + err.message); }
   finally { importFile.value = ""; }
 });
+
+// ── Payments tracker ────────────────────────────────────────────
+const paymentsBody     = document.getElementById("paymentsBody");
+const paymentsTotals   = document.getElementById("paymentsTotals");
+const addPaymentRowBtn = document.getElementById("addPaymentRow");
+
+const PAYMENT_CATEGORIES = ["Housing","Utilities","Subscriptions","Insurance","Food","Transport","Health","Debt","Savings","Other"];
+
+function newPayment(){
+  return { name:"", amount:0, frequency:"monthly", category:"Other", paid:false };
+}
+
+let paymentSaveTimer = null;
+function schedulePaymentsSave(){
+  flashSaving();
+  clearTimeout(paymentSaveTimer);
+  paymentSaveTimer = setTimeout(() => fsSavePayments(paymentsState), 1200);
+}
+
+function renderPayments(){
+  paymentsBody.innerHTML = "";
+  if(!paymentsState.length){
+    paymentsBody.innerHTML = '<tr><td colspan="6" class="payments-empty">No payments yet. Click "+ Add Payment" to start tracking.</td></tr>';
+    updatePaymentTotals();
+    return;
+  }
+  paymentsState.forEach((p, i) => {
+    const tr = document.createElement("tr");
+    if(p.paid) tr.className = "row-paid";
+    tr.innerHTML = `
+      <td><input type="text" value="${escHtml(p.name)}" placeholder="Payment name" data-idx="${i}" data-field="name"/></td>
+      <td><input type="number" value="${p.amount||''}" placeholder="0.00" step="0.01" data-idx="${i}" data-field="amount"/></td>
+      <td><select data-idx="${i}" data-field="frequency">
+        <option value="weekly"${p.frequency==="weekly"?" selected":""}>Weekly</option>
+        <option value="biweekly"${p.frequency==="biweekly"?" selected":""}>Bi-weekly</option>
+        <option value="monthly"${p.frequency==="monthly"?" selected":""}>Monthly</option>
+        <option value="yearly"${p.frequency==="yearly"?" selected":""}>Yearly</option>
+      </select></td>
+      <td><select data-idx="${i}" data-field="category">
+        ${PAYMENT_CATEGORIES.map(c => `<option value="${c}"${p.category===c?" selected":""}>${c}</option>`).join("")}
+      </select></td>
+      <td style="text-align:center"><input type="checkbox" class="paid-check" data-idx="${i}" ${p.paid?"checked":""}/></td>
+      <td><button class="btn-del-row" data-idx="${i}" title="Remove">&times;</button></td>`;
+    paymentsBody.appendChild(tr);
+  });
+  updatePaymentTotals();
+}
+
+function escHtml(s){ return String(s).replace(/"/g,"&quot;").replace(/</g,"&lt;"); }
+
+paymentsBody.addEventListener("input", e => {
+  const t = e.target;
+  const idx = Number(t.dataset.idx);
+  const field = t.dataset.field;
+  if(field === undefined || isNaN(idx)) return;
+  if(field === "amount") paymentsState[idx].amount = parseFloat(t.value) || 0;
+  else paymentsState[idx][field] = t.value;
+  schedulePaymentsSave();
+  updatePaymentTotals();
+});
+
+paymentsBody.addEventListener("change", e => {
+  const t = e.target;
+  if(t.classList.contains("paid-check")){
+    const idx = Number(t.dataset.idx);
+    paymentsState[idx].paid = t.checked;
+    t.closest("tr").className = t.checked ? "row-paid" : "";
+    schedulePaymentsSave();
+    updatePaymentTotals();
+    return;
+  }
+  const idx = Number(t.dataset.idx);
+  const field = t.dataset.field;
+  if(field !== undefined && !isNaN(idx)){
+    paymentsState[idx][field] = t.value;
+    schedulePaymentsSave();
+    updatePaymentTotals();
+  }
+});
+
+paymentsBody.addEventListener("click", e => {
+  if(e.target.classList.contains("btn-del-row")){
+    const idx = Number(e.target.dataset.idx);
+    paymentsState.splice(idx, 1);
+    schedulePaymentsSave();
+    renderPayments();
+  }
+});
+
+addPaymentRowBtn.addEventListener("click", () => {
+  paymentsState.push(newPayment());
+  schedulePaymentsSave();
+  renderPayments();
+  // Focus the new name input
+  const inputs = paymentsBody.querySelectorAll('input[data-field="name"]');
+  if(inputs.length) inputs[inputs.length - 1].focus();
+});
+
+function toMonthly(amount, freq){
+  switch(freq){
+    case "weekly": return amount * 52 / 12;
+    case "biweekly": return amount * 26 / 12;
+    case "monthly": return amount;
+    case "yearly": return amount / 12;
+    default: return amount;
+  }
+}
+
+function updatePaymentTotals(){
+  let totalMonthly = 0, totalWeekly = 0, totalYearly = 0;
+  let paidMonthly = 0, unpaidMonthly = 0;
+  paymentsState.forEach(p => {
+    const m = toMonthly(p.amount, p.frequency);
+    totalMonthly += m;
+    if(p.paid) paidMonthly += m; else unpaidMonthly += m;
+  });
+  totalWeekly = totalMonthly * 12 / 52;
+  totalYearly = totalMonthly * 12;
+
+  const fmt = n => n.toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2});
+  paymentsTotals.innerHTML = `
+    <div class="total-card accent"><span class="total-label">Monthly Total</span><span class="total-value">$${fmt(totalMonthly)}</span></div>
+    <div class="total-card"><span class="total-label">Weekly Total</span><span class="total-value">$${fmt(totalWeekly)}</span></div>
+    <div class="total-card"><span class="total-label">Yearly Total</span><span class="total-value">$${fmt(totalYearly)}</span></div>
+    <div class="total-card green"><span class="total-label">Paid (Monthly)</span><span class="total-value">$${fmt(paidMonthly)}</span></div>
+    <div class="total-card red"><span class="total-label">Unpaid (Monthly)</span><span class="total-value">$${fmt(unpaidMonthly)}</span></div>`;
+}
 </script>
 </body>
 </html>
