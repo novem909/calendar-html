@@ -107,14 +107,59 @@
   .day.lose .state{color:var(--red);background:rgba(251,113,133,.1)}
   .day:not(.win):not(.lose) .state{color:var(--muted);font-weight:400}
 
-  .reasoning{
-    flex:1;margin:2px 0;min-height:24px;font-size:11px;color:var(--text-dim);
-    padding:3px 4px;border-radius:4px;cursor:text;line-height:1.35;
-    transition:all .15s var(--ease)
+  .journal-btn{
+    margin:2px 0;font-size:10px;font-weight:600;color:var(--text-dim);
+    background:var(--surface);border:1px solid var(--border);border-radius:5px;
+    padding:4px 8px;cursor:pointer;text-align:left;
+    display:flex;align-items:center;gap:5px;
+    transition:all .15s var(--ease);letter-spacing:.01em
   }
-  .reasoning:hover{background:rgba(255,255,255,.02)}
-  .reasoning.editing{background:var(--surface);border:1px solid var(--accent-border);outline:none;color:var(--text)}
-  .reasoning.empty:before{content:"Reasoning...";opacity:.35;font-size:10px}
+  .journal-btn:hover{background:var(--panel-raised);color:var(--text);border-color:var(--border-hover)}
+  .journal-btn .journal-icon{font-size:11px;opacity:.8}
+  .journal-btn .journal-dot{
+    width:5px;height:5px;border-radius:999px;background:var(--text-dim);
+    margin-left:auto;display:none
+  }
+  .journal-btn.has-content .journal-dot{display:inline-block}
+
+  /* ── Journal modal ── */
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(6px);
+    display:none;align-items:center;justify-content:center;z-index:600;
+    padding:20px;animation:fadeIn .2s var(--ease)
+  }
+  .modal-overlay.active{display:flex}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  .modal-card{
+    background:var(--panel);border:1px solid var(--border);border-radius:16px;
+    width:100%;max-width:640px;max-height:85vh;
+    display:flex;flex-direction:column;
+    box-shadow:var(--shadow-lg);animation:slideUp .25s var(--ease)
+  }
+  @keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+  .modal-header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:20px 24px;border-bottom:1px solid var(--border)
+  }
+  .modal-title{font-size:16px;font-weight:600;color:var(--text);letter-spacing:-.02em}
+  .modal-date{font-size:12px;color:var(--muted);margin-top:2px}
+  .modal-close{
+    background:transparent;border:none;color:var(--muted);
+    font-size:22px;line-height:1;cursor:pointer;padding:4px 10px;border-radius:6px
+  }
+  .modal-close:hover{background:var(--surface);color:var(--text)}
+  .modal-body{padding:20px 24px;flex:1;overflow-y:auto;display:flex}
+  .modal-textarea{
+    width:100%;min-height:280px;background:var(--surface);color:var(--text);
+    border:1px solid var(--border);border-radius:var(--round-sm);
+    padding:14px 16px;font-family:inherit;font-size:14px;line-height:1.6;
+    resize:vertical;transition:all .2s var(--ease)
+  }
+  .modal-textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
+  .modal-footer{
+    display:flex;justify-content:flex-end;gap:8px;
+    padding:16px 24px;border-top:1px solid var(--border)
+  }
 
   .plans{
     flex:1;margin:2px 0;min-height:24px;font-size:11px;color:var(--text-dim);
@@ -398,6 +443,25 @@
       </svg>
       Sign in with Google
     </button>
+  </div>
+</div>
+
+<!-- ── Journal modal ── -->
+<div class="modal-overlay" id="journalModal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Journal</div>
+        <div class="modal-date" id="journalModalDate"></div>
+      </div>
+      <button class="modal-close" id="journalModalClose" title="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <textarea class="modal-textarea" id="journalTextarea" placeholder="Write your journal notes for this day..."></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-save" id="journalSaveBtn">Save</button>
+    </div>
   </div>
 </div>
 
@@ -902,21 +966,15 @@ function renderMonth(){
     stateEl.textContent = status ? (status === "win" ? "Win" : "Lose") : "\u2014";
     header.append(num, stateEl);
 
-    // Reasoning
-    const reasoningDiv = document.createElement("div");
+    // Journal button
+    const journalBtn = document.createElement("button");
+    journalBtn.type = "button";
     const rText = (reasoningState[currentMonth] && reasoningState[currentMonth][d]) || "";
-    reasoningDiv.className = `reasoning ${rText ? "" : "empty"}`;
-    reasoningDiv.contentEditable = true;
-    reasoningDiv.textContent = rText;
-    reasoningDiv.addEventListener("focus", () => reasoningDiv.classList.add("editing"));
-    reasoningDiv.addEventListener("blur", () => {
-      reasoningDiv.classList.remove("editing");
-      const text = reasoningDiv.textContent.trim();
-      reasoningDiv.className = `reasoning ${text ? "" : "empty"}`;
-      saveReasoning(d, text);
-    });
-    reasoningDiv.addEventListener("keydown", e => {
-      if(e.key === "Enter" && !e.shiftKey){ e.preventDefault(); reasoningDiv.blur(); }
+    journalBtn.className = `journal-btn ${rText ? "has-content" : ""}`;
+    journalBtn.innerHTML = `<span class="journal-icon">&#9998;</span> Journal<span class="journal-dot"></span>`;
+    journalBtn.addEventListener("click", e => {
+      e.stopPropagation();
+      openJournalModal(d);
     });
 
     // Plans
@@ -943,7 +1001,7 @@ function renderMonth(){
     btnLose.addEventListener("click", () => toggleStatus(d, "lose"));
     actions.append(btnWin, btnLose);
 
-    card.append(header, reasoningDiv, plansDiv, actions);
+    card.append(header, journalBtn, plansDiv, actions);
     daysGrid.appendChild(card);
   }
   updateStats();
@@ -1050,6 +1108,51 @@ importFile.addEventListener("change", async e => {
     alert("Import successful!");
   } catch(err){ alert("Failed to import: " + err.message); }
   finally { importFile.value = ""; }
+});
+
+// ── Journal modal ───────────────────────────────────────────────
+const journalModal     = document.getElementById("journalModal");
+const journalModalDate = document.getElementById("journalModalDate");
+const journalTextarea  = document.getElementById("journalTextarea");
+const journalCloseBtn  = document.getElementById("journalModalClose");
+const journalSaveBtn   = document.getElementById("journalSaveBtn");
+let journalCurrentDay  = null;
+
+function openJournalModal(day){
+  journalCurrentDay = day;
+  const text = (reasoningState[currentMonth] && reasoningState[currentMonth][day]) || "";
+  journalTextarea.value = text;
+  journalModalDate.textContent = `${MONTHS[currentMonth]} ${day}, ${currentYear}`;
+  journalModal.classList.add("active");
+  setTimeout(() => journalTextarea.focus(), 50);
+}
+
+function closeJournalModal(save){
+  if(save && journalCurrentDay !== null){
+    const text = journalTextarea.value.trim();
+    saveReasoning(journalCurrentDay, text);
+    // Update button state on the day card
+    const card = daysGrid.querySelector(`.day[data-day="${journalCurrentDay}"]`);
+    if(card){
+      const btn = card.querySelector(".journal-btn");
+      if(btn) btn.classList.toggle("has-content", !!text);
+    }
+  }
+  journalModal.classList.remove("active");
+  journalCurrentDay = null;
+}
+
+journalCloseBtn.addEventListener("click", () => closeJournalModal(false));
+journalSaveBtn.addEventListener("click", () => closeJournalModal(true));
+journalModal.addEventListener("click", e => {
+  if(e.target === journalModal) closeJournalModal(true);
+});
+document.addEventListener("keydown", e => {
+  if(e.key === "Escape" && journalModal.classList.contains("active")) closeJournalModal(true);
+  if(e.key === "Enter" && (e.ctrlKey || e.metaKey) && journalModal.classList.contains("active")){
+    e.preventDefault();
+    closeJournalModal(true);
+  }
 });
 
 // ── Payments tracker ────────────────────────────────────────────
