@@ -1301,8 +1301,18 @@ function renderPaymentIndicators(){
 
     switch(p.frequency){
       case "monthly":  mark(Math.min(base, totalDays)); break;
-      case "weekly":   for(let d = base; d <= totalDays; d += 7) mark(d); break;
-      case "biweekly": mark(Math.min(base, totalDays)); if(base + 14 <= totalDays) mark(base + 14); break;
+      case "weekly": {
+        const anchor = Math.min(base, totalDays);
+        for(let d = anchor; d <= totalDays; d += 7) mark(d);   // forward
+        for(let d = anchor - 7; d >= 1; d -= 7) mark(d);       // backward
+        break;
+      }
+      case "biweekly": {
+        const anchor = Math.min(base, totalDays);
+        for(let d = anchor; d <= totalDays; d += 14) mark(d);  // forward
+        for(let d = anchor - 14; d >= 1; d -= 14) mark(d);     // backward
+        break;
+      }
       case "yearly":   mark(Math.min(base, totalDays)); break;
     }
   });
