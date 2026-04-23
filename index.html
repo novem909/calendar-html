@@ -294,6 +294,21 @@
   .plan-item-day{font-size:11px;color:var(--muted);margin-top:4px}
   .no-plans{text-align:center;color:var(--muted);padding:48px 20px;font-size:14px}
 
+  /* ── Payment chips on calendar days ── */
+  .payment-chips{display:flex;flex-wrap:wrap;gap:2px;margin:2px 0 1px}
+  .payment-chip{
+    font-size:9px;font-weight:600;
+    padding:2px 5px;border-radius:3px;
+    border-left:2px solid;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    max-width:100%;color:var(--text-dim);background:var(--surface);
+    cursor:default;line-height:1.3
+  }
+  .payment-chip.freq-monthly{border-color:var(--accent);color:var(--accent)}
+  .payment-chip.freq-weekly{border-color:var(--green);color:var(--green)}
+  .payment-chip.freq-biweekly{border-color:#a78bfa;color:#a78bfa}
+  .payment-chip.freq-yearly{border-color:#fbbf24;color:#fbbf24}
+
   /* ── Payments table ── */
   .payments-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px}
   .payments-header h3{margin:0;font-size:18px;font-weight:600;color:var(--text);letter-spacing:-.02em}
@@ -420,6 +435,17 @@
     .main-content{min-width:0;width:100%}
     .panel{padding:10px}
     .tab-content{padding:12px}
+
+    /* Payment chips — collapse to colored dots on narrow cells */
+    .payment-chips{gap:2px;margin:1px 0;flex-wrap:wrap}
+    .payment-chip{
+      font-size:0;width:6px;height:6px;padding:0;
+      border-left:none;border-radius:999px;flex-shrink:0
+    }
+    .payment-chip.freq-monthly{background:var(--accent)}
+    .payment-chip.freq-weekly{background:var(--green)}
+    .payment-chip.freq-biweekly{background:#a78bfa}
+    .payment-chip.freq-yearly{background:#fbbf24}
 
     /* Calendar grid — fit 7 cols, extend vertically for comfort */
     .grid{gap:3px}
@@ -692,6 +718,7 @@
                   <th>Name</th>
                   <th>Amount ($)</th>
                   <th>Frequency</th>
+                  <th>Due Day</th>
                   <th>Category</th>
                   <th style="text-align:center">Paid</th>
                   <th style="width:40px"></th>
@@ -1102,6 +1129,7 @@ function renderMonth(){
     daysGrid.appendChild(card);
   }
   updateStats();
+  renderPaymentIndicators();
 }
 
 // ── Status & stats ──────────────────────────────────────────────
@@ -1252,6 +1280,51 @@ document.addEventListener("keydown", e => {
   }
 });
 
+// ── Payment calendar indicators ─────────────────────────────────
+function renderPaymentIndicators(){
+  // Remove any existing chips
+  daysGrid.querySelectorAll(".payment-chips").forEach(el => el.remove());
+
+  const totalDays = daysInMonth(currentMonth, currentYear);
+  const dayMap = {}; // day number -> [payment, ...]
+
+  paymentsState.forEach(p => {
+    const base = parseInt(p.dueDay);
+    if(!base || base < 1 || base > 31) return;
+
+    const mark = d => {
+      if(d >= 1 && d <= totalDays){
+        dayMap[d] = dayMap[d] || [];
+        dayMap[d].push(p);
+      }
+    };
+
+    switch(p.frequency){
+      case "monthly":   mark(base); break;
+      case "weekly":    for(let d = base; d <= totalDays; d += 7) mark(d); break;
+      case "biweekly":  mark(base); mark(base + 14); break;
+      case "yearly":    mark(base); break;
+    }
+  });
+
+  Object.entries(dayMap).forEach(([d, payments]) => {
+    const card = daysGrid.querySelector(`.day[data-day="${d}"]`);
+    if(!card) return;
+    const chips = document.createElement("div");
+    chips.className = "payment-chips";
+    payments.forEach(p => {
+      const chip = document.createElement("div");
+      chip.className = `payment-chip freq-${p.frequency}`;
+      chip.textContent = p.name || "$";
+      chip.title = `${p.name || "Payment"} — $${p.amount} (${p.frequency})`;
+      chips.appendChild(chip);
+    });
+    // Insert after day header
+    const header = card.querySelector(".day-header");
+    if(header) header.after(chips);
+  });
+}
+
 // ── Payments tracker ────────────────────────────────────────────
 const paymentsBody     = document.getElementById("paymentsBody");
 const paymentsTotals   = document.getElementById("paymentsTotals");
@@ -1260,7 +1333,7 @@ const addPaymentRowBtn = document.getElementById("addPaymentRow");
 const PAYMENT_CATEGORIES = ["Housing","Utilities","Subscriptions","Insurance","Food","Transport","Health","Debt","Savings","Other"];
 
 function newPayment(){
-  return { name:"", amount:0, frequency:"monthly", category:"Other", paid:false };
+  return { name:"", amount:0, frequency:"monthly", dueDay:null, category:"Other", paid:false };
 }
 
 let paymentSaveTimer = null;
@@ -1289,6 +1362,7 @@ function renderPayments(){
         <option value="monthly"${p.frequency==="monthly"?" selected":""}>Monthly</option>
         <option value="yearly"${p.frequency==="yearly"?" selected":""}>Yearly</option>
       </select></td>
+      <td><input type="number" min="1" max="31" value="${p.dueDay||''}" placeholder="1–31" data-idx="${i}" data-field="dueDay" style="width:70px"/></td>
       <td><select data-idx="${i}" data-field="category">
         ${PAYMENT_CATEGORIES.map(c => `<option value="${c}"${p.category===c?" selected":""}>${c}</option>`).join("")}
       </select></td>
@@ -1307,9 +1381,11 @@ paymentsBody.addEventListener("input", e => {
   const field = t.dataset.field;
   if(field === undefined || isNaN(idx)) return;
   if(field === "amount") paymentsState[idx].amount = parseFloat(t.value) || 0;
+  else if(field === "dueDay") paymentsState[idx].dueDay = parseInt(t.value) || null;
   else paymentsState[idx][field] = t.value;
   schedulePaymentsSave();
   updatePaymentTotals();
+  renderPaymentIndicators();
 });
 
 paymentsBody.addEventListener("change", e => {
@@ -1328,6 +1404,7 @@ paymentsBody.addEventListener("change", e => {
     paymentsState[idx][field] = t.value;
     schedulePaymentsSave();
     updatePaymentTotals();
+    renderPaymentIndicators();
   }
 });
 
@@ -1337,6 +1414,7 @@ paymentsBody.addEventListener("click", e => {
     paymentsState.splice(idx, 1);
     schedulePaymentsSave();
     renderPayments();
+    renderPaymentIndicators();
   }
 });
 
