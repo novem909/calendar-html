@@ -1300,10 +1300,10 @@ function renderPaymentIndicators(){
     };
 
     switch(p.frequency){
-      case "monthly":   mark(base); break;
-      case "weekly":    for(let d = base; d <= totalDays; d += 7) mark(d); break;
-      case "biweekly":  mark(base); mark(base + 14); break;
-      case "yearly":    mark(base); break;
+      case "monthly":  mark(Math.min(base, totalDays)); break;
+      case "weekly":   for(let d = base; d <= totalDays; d += 7) mark(d); break;
+      case "biweekly": mark(Math.min(base, totalDays)); if(base + 14 <= totalDays) mark(base + 14); break;
+      case "yearly":   mark(Math.min(base, totalDays)); break;
     }
   });
 
